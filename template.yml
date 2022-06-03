@@ -1,0 +1,173 @@
+Transform: AWS::Serverless-2016-10-31
+Parameters:
+  environment:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: environment
+  prefix:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: prefix
+  subnetA:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /subnet/private/a
+  subnetB:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /subnet/private/b
+  vpc:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: vpc
+
+#### What gets deployed:
+# Lambda on a 15m schedule that checks for new smart contract events
+# Other required SSM parameters:
+# (RPC endpoint)
+#   /ede/config/mainnet
+#   /ede/config/gnosis
+# (Contract watching)
+#       /ede/tasks/mainnet/<ContractName>/<Event>/<ContractAddress>
+#   Example:
+#       /ede/tasks/mainnet/ProofOfHumanity/AddSubmission/0xC5E9dDebb09Cd64DfaCab4011A0D5cEDaf7c9BDb
+#   This watches a ProofOfHumanity contract at 0xC5..
+#   todo: implement smart contract version management
+# See README for further configuration
+
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${prefix}-${environment}-events
+
+  ABITable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: !Sub ${prefix}-${environment}-abi
+
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${prefix}-${environment}-beat
+
+  txListenerMainnet:
+    Type: AWS::Serverless::Function
+    Properties:
+      Environment:
+        Variables:
+          TABLE: !Ref ABITable
+          BUCKET: !Ref Bucket
+          REGION: !Ref AWS::Region
+          SNS: !Ref SNSTopic
+          network: "mainnet"
+          provider: "infura"
+      FunctionName: !Sub ${prefix}-${environment}-mainnet-listener
+      Handler: index.lambda_entrypoint
+      Runtime: python3.9
+      MemorySize: 1028
+      CodeUri: ./src/event-driven-ethereum
+      Timeout: 360
+      Events:
+        InvocationLevel:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(15 minutes)'
+      Role: !GetAtt LambdaRole.Arn
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSG
+        SubnetIds:
+          - !Ref subnetB
+          - !Ref subnetA
+
+  txListenerGnosis:
+    Type: AWS::Serverless::Function
+    Properties:
+      Environment:
+        Variables:
+          TABLE: !Ref ABITable
+          BUCKET: !Ref Bucket
+          REGION: !Ref AWS::Region
+          SNS: !Ref SNSTopic
+          network: "gnosis"
+      FunctionName: !Sub ${prefix}-${environment}-gnosis-listener
+      Handler: index.lambda_entrypoint
+      Runtime: python3.9
+      MemorySize: 1028
+      CodeUri: ./src/event-driven-ethereum
+      Timeout: 360
+      Events:
+        InvocationLevel:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(15 minutes)'
+      Role: !GetAtt LambdaRole.Arn
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSG
+        SubnetIds:
+          - !Ref subnetB
+          - !Ref subnetA
+
+  LambdaSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: txListener
+      VpcId: !Ref vpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 8545
+          CidrIp: 0.0.0.0/0
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                - ec2:CreateNetworkInterface
+                - ssm:GetParameter*
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
+                - ssm:ListTagsForResource
+                - events:ListRules
+                - events:Put*
+                - sns:Publish
+                - sqs:SendMessage
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                - ssm:PutParameter
+                Resource: 'arn:aws:ssm:*:*:parameter/ede/*'
+              - Effect: Allow
+                Action:
+                - dynamodb:DescribeTable
+                - dynamodb:Get*
+                - dynamodb:Query
+                - dynamodb:Scan
+                Resource: !Sub "arn:aws:dynamodb:*:*:table/${ABITable}"
+              - Effect: Allow
+                Action:
+                - s3:PutObject
+                - s3:PutObjectAcl
+                - s3:GetObjectAcl
+                - s3:ListBucket
+                - s3:GetBucketLocation
+                Resource: !Sub "arn:aws:s3:::${Bucket}/*"
+              - Effect: Allow
+                Action:
+                - s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::${Bucket}"
