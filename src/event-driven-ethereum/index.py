@@ -96,7 +96,7 @@ def event_handler(event):
 
 
 def lambda_entrypoint(event, context):
-'''1. Retrieve rules & for each of those rules scan for new events on a given Smart Contract and method.'''
+    '''1. Retrieve rules & for each of those rules scan for new events on a given Smart Contract and method.'''
     tasks = retrieve_tasks(client_ssm, NETWORK)
     for t in tasks.values():
         t = json.loads(t)  # Nested dict of tasks.

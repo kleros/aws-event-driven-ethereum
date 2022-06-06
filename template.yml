@@ -105,6 +105,35 @@ Resources:
           - !Ref subnetB
           - !Ref subnetA
 
+  txListenerArbitrumRinkeby:
+    Type: AWS::Serverless::Function
+    Properties:
+      Environment:
+        Variables:
+          TABLE: !Ref ABITable
+          BUCKET: !Ref Bucket
+          REGION: !Ref AWS::Region
+          SNS: !Ref SNSTopic
+          network: "arbitrum-rinkeby"
+      FunctionName: !Sub ${prefix}-${environment}-arb-rinkeby-listener
+      Handler: index.lambda_entrypoint
+      Runtime: python3.9
+      MemorySize: 1028
+      CodeUri: ./src/event-driven-ethereum
+      Timeout: 360
+      Events:
+        InvocationLevel:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(15 minutes)'
+      Role: !GetAtt LambdaRole.Arn
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSG
+        SubnetIds:
+          - !Ref subnetB
+          - !Ref subnetA
+
   LambdaSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
