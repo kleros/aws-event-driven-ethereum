@@ -47,6 +47,7 @@ def retrieve_events(original_event, event_filter):
             client_sns.publish(
                 TopicArn=original_event['SNS'],
                 Message=tx,
+                Subject=original_event['network']
             )
 
 
