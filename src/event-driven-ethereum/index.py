@@ -31,8 +31,6 @@ client_dydb = boto3.client('dynamodb', config=boto_config)
 client_sqs = boto3.client('sqs', config=boto_config)
 
 
-
-
 def retrieve_events(original_event, event_filter):
     for event in event_filter.get_all_entries():
         tx = event['transactionHash'].hex()
@@ -49,6 +47,9 @@ def retrieve_events(original_event, event_filter):
                 Message=tx,
                 Subject=original_event['network']
             )
+        if 'DynamoDB' in original_event:
+            TABLE = client_dydb.Table(original_event['DynamoDB'])
+            TABLE.update_item(Key={'tx': tx, 'network': original_event['network']})
 
 
 def event_handler(event):
@@ -92,8 +93,6 @@ def event_handler(event):
     except BaseException as error:
         logging.info(f"Couldn't update block height in SSM; verify IAM permissions.")
         logging.debug(error)
-
-
 
 
 def lambda_entrypoint(event, context):

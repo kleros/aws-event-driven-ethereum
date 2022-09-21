@@ -25,7 +25,7 @@ def retrieve_tasks(client_ssm, network):
         )
 
         for tag in response['TagList']:
-            supported_services = ["SNS", "SQS"]
+            supported_services = ["SNS", "SQS", "DynamoDB"]
             for service in supported_services:
                 if tag['Key'] == service:
                     if not tag['Key'] == "null":
@@ -33,6 +33,7 @@ def retrieve_tasks(client_ssm, network):
         i += 1
         update(i, ephemeral_dict)
     return returnable_dict
+
 
 
 def update_block_height(client_ssm, event, height):

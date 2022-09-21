@@ -25,8 +25,7 @@ def retrieve_networks():
     network_d = dict()
     for parameter in networks["Parameters"]:
         trimmed_network = str(parameter["Name"]).split("/")[3]
-        rpc = parameter["Value"]
-        network_d[trimmed_network] =  rpc
+        network_d[trimmed_network] = parameter["Value"]
     return network_d
 
 

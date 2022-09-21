@@ -55,42 +55,42 @@ Resources:
 #      ApiId: !Ref StatusHttpApi
 #      RouteKey: 'GET  /status'
 
-  BasicAWSApiGateway:
-    Type: AWS::Serverless::Api
-    Properties:
-      Name: Basic AWS Api Gateway
-      StageName: Staging
-
-##########################################################################
-#   Lambda Function                                                      #
-##########################################################################
-  StatusAPIFunction:
-    Type: 'AWS::Serverless::Function'
-    Properties:
-      Handler: index.lambda_entrypoint
-      CodeUri: ./src/apis/status-api/
-      Role: !GetAtt LambdaRole.Arn
-      VpcConfig:
-        SecurityGroupIds:
-          - !Ref LambdaSG
-        SubnetIds:
-          - !Ref subnetB
-          - !Ref subnetA
-      Events:
-        HelloWorldApi:
-          Type: Api
-          Properties:
-            RestApiId: !Ref BasicAWSApiGateway
-            Path:  /v1/ede/status
-            Method: GET
-  # Function permissions grant an AWS service or another account permission to use a function
-  FunctionResourcePermission:
-    Type: 'AWS::Lambda::Permission'
-    Properties:
-      Action: 'lambda:InvokeFunction'
-      Principal: apigateway.amazonaws.com
-      FunctionName: !Ref StatusAPIFunction
-      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BasicAWSApiGateway}/*'
+#  BasicAWSApiGateway:
+#    Type: AWS::Serverless::Api
+#    Properties:
+#      Name: Basic AWS Api Gateway
+#      StageName: Staging
+#
+###########################################################################
+##   Lambda Function                                                      #
+###########################################################################
+#  StatusAPIFunction:
+#    Type: 'AWS::Serverless::Function'
+#    Properties:
+#      Handler: index.lambda_entrypoint
+#      CodeUri: ./src/apis/status-api/
+#      Role: !GetAtt LambdaRole.Arn
+#      VpcConfig:
+#        SecurityGroupIds:
+#          - !Ref LambdaSG
+#        SubnetIds:
+#          - !Ref subnetB
+#          - !Ref subnetA
+#      Events:
+#        HelloWorldApi:
+#          Type: Api
+#          Properties:
+#            RestApiId: !Ref BasicAWSApiGateway
+#            Path:  /v1/ede/status
+#            Method: GET
+#  # Function permissions grant an AWS service or another account permission to use a function
+#  FunctionResourcePermission:
+#    Type: 'AWS::Lambda::Permission'
+#    Properties:
+#      Action: 'lambda:InvokeFunction'
+#      Principal: apigateway.amazonaws.com
+#      FunctionName: !Ref StatusAPIFunction
+#      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BasicAWSApiGateway}/*'
 
 ##########################################################################
 #  CloudFront::CachePolicy                                               #
@@ -316,11 +316,9 @@ Resources:
                 Resource: 'arn:aws:ssm:*:*:parameter/ede/*'
               - Effect: Allow
                 Action:
-                - dynamodb:DescribeTable
-                - dynamodb:Get*
-                - dynamodb:Query
-                - dynamodb:Scan
-                Resource: !Sub "arn:aws:dynamodb:*:*:table/${ABITable}"
+                - dynamodb:*  # FIX ME // NARROW SCOPE
+                #Resource: !Sub "arn:aws:dynamodb:*:*:table/${ABITable}"
+                Resource: !Sub "arn:aws:dynamodb:*:*:table/*"
               - Effect: Allow
                 Action:
                 - s3:PutObject
